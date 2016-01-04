@@ -219,6 +219,9 @@ signals:
    void exportTable();
    void exportQTableView(QAbstractItemView *tableview);
 
+   //Import CSV inventory
+   void importInventory();
+
    //LOGS
    void log(const qulonglong &uid, const QDate &date, const QTime &time, const QString &text);
    void showLogs();
@@ -233,7 +236,7 @@ signals:
    void reSelectModels();
 
    void checkDefaultView();
-   
+
 };
 
 #endif // SQUEEZEVIEW_H

@@ -99,7 +99,7 @@
       </sizepolicy>
      </property>
      <property name="currentIndex">
-      <number>10</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="pageWelcome">
       <layout class="QGridLayout" name="gridLayout">
@@ -853,7 +853,7 @@
         <widget class="QListView" name="productsView"/>
        </item>
        <item>
-        <layout class="QHBoxLayout">
+        <layout class="QHBoxLayout" name="_4">
          <item>
           <widget class="QGroupBox" name="groupBox">
            <property name="minimumSize">
@@ -955,6 +955,19 @@ p, li { white-space: pre-wrap; }
           <widget class="QPushButton" name="btnExportProducts">
            <property name="text">
             <string>Export</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnImportInventory">
+           <property name="layoutDirection">
+            <enum>Qt::LeftToRight</enum>
+           </property>
+           <property name="autoFillBackground">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>Import Inventory</string>
            </property>
           </widget>
          </item>
@@ -2495,14 +2508,14 @@ color:black;</string>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>KPlotWidget</class>
-   <extends>QFrame</extends>
-   <header>kplotwidget.h</header>
-  </customwidget>
-  <customwidget>
    <class>KDateWidget</class>
    <extends>QWidget</extends>
    <header>kdatewidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>KPlotWidget</class>
+   <extends>QFrame</extends>
+   <header>kplotwidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
