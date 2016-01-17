@@ -68,6 +68,22 @@ QString Azahar::lastError()
   return errorStr;
 }
 
+bool  Azahar::isProductInStock(qulonglong code)
+{
+    bool isExistent;
+    QString sqlQry = QString("SELECT code FROM products WHERE code=%1").arg(code);
+    if (!db.isOpen()) db.open();
+
+    QSqlQuery query(db);
+    if(!query.exec(sqlQry)){
+        setError(query.lastError().text());
+        return false;
+    }
+    isExistent = (!query.size() <= 0);
+
+    return isExistent;
+}
+
 bool  Azahar::correctStock(qulonglong pcode, double oldStockQty, double newStockQty, const QString &reason )
 { //each correction is an insert to the table.
   bool result1, result2;
@@ -208,7 +224,7 @@ ProductInfo Azahar::getProductInfo(const QString &code, const bool &notConsiderD
     WHERE PR.id=P.lastproviderid AND T.modelid=P.taxmodel \
     AND C.catid=P.category AND U.id=P.units\
     AND (CODE='%1' or ALPHACODE='%1');").arg(code);
-    
+
     QSqlQuery query(db);
     if (!query.exec(qry)) {
       int errNum = query.lastError().number();
@@ -277,7 +293,7 @@ ProductInfo Azahar::getProductInfo(const QString &code, const bool &notConsiderD
 
       if ( info.hasUnlimitedStock )
             info.stockqty = 999999; //just make sure we do not return 0 for unlimited stock items.
-      
+
       /** @TODO: for future releases where taxmodel is included in code
       //get missing stuff - tax,offers for the requested product
       if (info.isAGroup) //If its a group, the taxmodel is ignored, the tax will be its elements taxes
@@ -293,7 +309,7 @@ ProductInfo Azahar::getProductInfo(const QString &code, const bool &notConsiderD
           info.totaltax = info.price*(1+(info.tax/100)); //tax in money
       }
       **/
-      
+
       ///NOTE FOR DISCOUNTS:  TODO: ADD THIS TO THE USER MANUAL
       //     If a group contains product with discounts THOSE ARE NOT TAKEN INTO CONSIDERATION,
       //     The only DISCOUNT for a GROUP is the DISCOUNT created for the GROUP PRODUCT -not for its contents-.
@@ -301,7 +317,7 @@ ProductInfo Azahar::getProductInfo(const QString &code, const bool &notConsiderD
       //     Another way to assign a "discount" for a group is reducing the price in the product editor
       //     this is not considered a discount but a lower price, and both can coexist so
       ///    be CAREFUL with this!
-      
+
      //get discount info... if have one.
      QSqlQuery query2(db);
      if ( !info.isNotDiscountable ) { //get discounts if !isNotDiscountable...
@@ -349,7 +365,7 @@ ProductInfo Azahar::getProductInfo(const QString &code, const bool &notConsiderD
      }
      ///tax calculation - it depends on discounts... @note: this will be removed when taxmodels are coded.
      double pWOtax = 0;
-     if (getConfigTaxIsIncludedInPrice()) //added on jan 28 2010. 
+     if (getConfigTaxIsIncludedInPrice()) //added on jan 28 2010.
        pWOtax= info.price/(1+((info.tax+info.extratax)/100));
      else
        pWOtax = info.price;
@@ -391,7 +407,7 @@ qulonglong Azahar::getProductCode(QString text)
   QSqlQuery query(db);
   qulonglong code=0;
   if (query.exec(QString("select code from products where name='%1';").arg(text))) {
-    while (query.next()) { 
+    while (query.next()) {
       int fieldId   = query.record().indexOf("code");
       code = query.value(fieldId).toULongLong();
     }
@@ -499,7 +515,7 @@ bool Azahar::insertProduct(ProductInfo info)
 
   if (info.hasUnlimitedStock)
       info.stockqty = 1; //for not showing "Not Available" in the product delegate.
-  
+
   query.prepare("INSERT INTO products (code, name, price, stockqty, cost, soldunits, datelastsold, units, taxpercentage, extrataxes, photo, category, points, alphacode, lastproviderid, isARawProduct,isAGroup, groupElements, groupPriceDrop, taxmodel, hasUnlimitedStock, isNotDiscountable ) VALUES (:code, :name, :price, :stock, :cost, :soldunits, :lastgetld, :units, :tax1, :tax2, :photo, :category, :points, :alphacode, :lastproviderid, :isARaw, :isAGroup, :groupE, :groupPriceDrop, :taxmodel, :unlimitedStock, :NonDiscountable);");
   query.bindValue(":code", info.code);
   query.bindValue(":name", info.desc);
@@ -529,7 +545,7 @@ bool Azahar::insertProduct(ProductInfo info)
   /** @note & TODO: Document this for the user.
    *                If the new product's code is reused, and a discount exists in the offers table, it will be deleted.
    **/
-  
+
   QSqlQuery queryX(db);
   if (queryX.exec(QString("Select id from offers where product_id=%1").arg(info.code) )) {
     while (queryX.next()) {
@@ -539,7 +555,7 @@ bool Azahar::insertProduct(ProductInfo info)
       qDebug()<<" **WARNING** Deleting Existing Offer for the new Product";
     }
   }
-  
+
   return result;
 }
 
@@ -549,7 +565,7 @@ bool Azahar::updateProduct(ProductInfo info, qulonglong oldcode)
   bool result = false;
   if (!db.isOpen()) db.open();
   QSqlQuery query(db);
-  
+
   //some buggy info can cause troubles.
   bool groupValueOK = false;
   bool rawValueOK = false;
@@ -563,7 +579,7 @@ bool Azahar::updateProduct(ProductInfo info, qulonglong oldcode)
 
   if (info.hasUnlimitedStock)
       info.stockqty = 1; //for not showing "Not Available" in the product delegate.
-  
+
   //query.prepare("UPDATE products SET code=:newcode, photo=:photo, name=:name, price=:price, stockqty=:stock, cost=:cost, units=:measure, taxpercentage=:tax1, extrataxes=:tax2, category=:category, points=:points, alphacode=:alphacode, lastproviderid=:lastproviderid , isARawProduct=:isRaw, isAGroup=:isGroup, groupElements=:ge, groupPriceDrop=:groupPriceDrop WHERE code=:id");
   ///TODO: remove the taxpercentage and extrataxes when taxmodel is implemented
   query.prepare("UPDATE products SET \
@@ -588,7 +604,7 @@ bool Azahar::updateProduct(ProductInfo info, qulonglong oldcode)
   isNotDiscountable=:NonDiscountable, \
   hasUnlimitedStock=:unlimitedStock \
   WHERE code=:id;");
-  
+
   query.bindValue(":newcode", info.code);
   query.bindValue(":name", info.desc);
   query.bindValue(":price", info.price);
@@ -628,7 +644,7 @@ bool Azahar::decrementProductStock(qulonglong code, double qty, QDate date)
   else
       nqty = qty;
   // nqty is the qty to ADD or DEC, qtys is the qty to ADD_TO_SOLD_UNITS only.
-   
+
   QSqlQuery query(db);
   query.prepare("UPDATE products SET datelastsold=:dateSold , stockqty=stockqty-:qty , soldunits=soldunits+:qtys WHERE code=:id");
   query.bindValue(":id", code);
@@ -655,7 +671,7 @@ bool Azahar::decrementGroupStock(qulonglong code, double qty, QDate date)
     //FOR EACH ELEMENT, DECREMENT PRODUCT STOCK
     result = result && decrementProductStock(c, q*qty, date);
   }
-  
+
   return result;
 }
 
@@ -692,7 +708,7 @@ bool Azahar::incrementGroupStock(qulonglong code, double qty)
   bool result = true;
   if (!db.isOpen()) db.open();
   QSqlQuery query(db);
-  
+
   ProductInfo info = getProductInfo(QString::number(code));
   QStringList lelem = info.groupElementsStr.split(",");
   foreach(QString ea, lelem) {
@@ -702,7 +718,7 @@ bool Azahar::incrementGroupStock(qulonglong code, double qty)
     //FOR EACH ELEMENT, DECREMENT PRODUCT STOCK
     result = result && incrementProductStock(c, q*qty);
   }
-  
+
   return result;
 }
 
@@ -718,7 +734,7 @@ bool Azahar::deleteProduct(qulonglong code)
   /** @note & TODO: Document this for the user.
    *                If a discount exists in the offers table for the deleted product, the offer will be deleted also.
    **/
-  
+
   QSqlQuery queryX(db);
   if (queryX.exec(QString("Select id from offers where product_id=%1").arg(code) )) {
     while (queryX.next()) {
@@ -728,7 +744,7 @@ bool Azahar::deleteProduct(qulonglong code)
       qDebug()<<" **NOTE** Deleting Existing Offer for the deleted Product";
     }
   }
-  
+
   return result;
 }
 
@@ -738,11 +754,11 @@ double Azahar::getProductDiscount(qulonglong code, bool isGroup)
   if (!db.isOpen()) db.open();
   if (db.isOpen()) {
     QSqlQuery query2(db);
-    
+
     ProductInfo p = getProductInfo( QString::number(code) );
     if ( p.isNotDiscountable )
         return 0.0;
-            
+
     QString qry = QString("SELECT * FROM offers WHERE product_id=%1").arg(code);
     if (!query2.exec(qry)) { setError(query2.lastError().text()); }
     else {
@@ -1003,10 +1019,10 @@ double Azahar::getGroupAverageTax(qulonglong id)
     sum += info.tax + info.extratax;
     ///sum += getTotalTaxPercent(info.taxElements);  FOR when taxmodels are implemented
   }
-  
+
   result = sum/pList.count();
   qDebug()<<"Group average tax: "<<result <<" sum:"<<sum<<" count:"<<pList.count();
-  
+
   return result;
 }
 */
@@ -1020,10 +1036,10 @@ double Azahar::getGroupAverageTax(qulonglong id)
   foreach( ProductInfo info, pList) {
     sum += info.tax + info.extratax;
   }
-  
+
   result = sum;
   qDebug()<<" TOTAL tax:"<<sum;
-  
+
   return result;
 }*/
 
@@ -1039,14 +1055,14 @@ GroupInfo Azahar::getGroupPriceAndTax(ProductInfo pi)
   gInfo.count = 0;
   gInfo.priceDrop = pi.groupPriceDrop;
   gInfo.name = pi.desc;
-  
+
   if ( pi.code <= 0 ) return gInfo;
 
   QList<ProductInfo> plist = getGroupProductsList(pi.code, true); //for getting products with taxes not including discounts.
   foreach(ProductInfo info, plist) {
     info.price      = (info.price -info.price*(pi.groupPriceDrop/100));
     info.totaltax   = info.price * info.qtyOnList *  (info.tax/100) + info.price * info.qtyOnList *  (info.extratax/100);
-    
+
     gInfo.price    += info.price * info.qtyOnList;
     gInfo.cost     += info.cost  * info.qtyOnList;
     gInfo.taxMoney += info.totaltax*info.qtyOnList;
@@ -1127,7 +1143,7 @@ bool Azahar::insertCategory(QString text)
     setError(query.lastError().text());
   }
   else result=true;
-  
+
   return result;
 }
 
@@ -1236,7 +1252,7 @@ bool Azahar::insertMeasure(QString text)
     setError(query.lastError().text());
   }
   else result=true;
-  
+
   return result;
 }
 
@@ -1322,8 +1338,8 @@ bool Azahar::createOffer(OfferInfo info)
       setError(i18n("Unable to set an offer/discount for the selected produc because it is NOT DISCOUNTABLE"));
       return false;
   }
-      
-  
+
+
   //The product has no offer yet.
   //NOTE: Now multiple offers supported (to save offers history)
   qryStr = "INSERT INTO offers (discount, datestart, dateend, product_id) VALUES(:discount, :datestart, :dateend, :code)";
@@ -1480,7 +1496,7 @@ UserInfo Azahar::getUserInfo(const qulonglong &userid)
       qDebug()<<"**Error** :"<<query.lastError();
     }
   }
-  return info; 
+  return info;
 }
 
 bool Azahar::updateUser(UserInfo info)
@@ -1918,7 +1934,7 @@ TransactionInfo Azahar::getTransactionInfo(qulonglong id)
       int fieldTax       = query.record().indexOf("totalTax");
       int fieldSpecialOrders = query.record().indexOf("specialOrders");
       int fieldCardTypeId = query.record().indexOf("cardtype");
-      
+
       info.id     = query.value(fieldId).toULongLong();
       info.amount = query.value(fieldAmount).toDouble();
       info.date   = query.value(fieldDate).toDate();
@@ -1978,7 +1994,7 @@ ProfitRange Azahar::getMonthSalesRange()
     info = monthTrans.at(i);
     salesList.append(info.amount);
   }
-  
+
   if (!salesList.isEmpty()) {
     qSort(salesList.begin(),salesList.end()); //sorting in ascending order (1,2,3..)
     range.min = salesList.first();
@@ -2020,7 +2036,7 @@ QList<TransactionInfo> Azahar::getMonthTransactionsForPie()
     }
     //qDebug()<<"executed query:"<<qryTrans.executedQuery();
     //qDebug()<<"Qry size:"<<qryTrans.size();
-    
+
   }
   return result;
 }
@@ -2052,7 +2068,7 @@ QList<TransactionInfo> Azahar::getMonthTransactions()
     }
     //qDebug()<<"executed query:"<<qryTrans.executedQuery();
     //qDebug()<<"Qry size:"<<qryTrans.size();
-    
+
   }
   return result;
 }
@@ -2128,7 +2144,7 @@ QList<TransactionInfo> Azahar::getDayTransactions()
     }
     //qDebug()<<"executed query:"<<qryTrans.executedQuery();
     //qDebug()<<"Qry size:"<<qryTrans.size();
-    
+
   }
   return result;
 }
@@ -2189,11 +2205,11 @@ AmountAndProfitInfo  Azahar::getDaySalesAndProfit()
     }
     //qDebug()<<"executed query:"<<qryTrans.executedQuery();
     //qDebug()<<"Qry size:"<<qryTrans.size();
-    
+
   }
   return result;
 }
-  
+
 //this returns the sales and profit from the 1st day of the month until today
 AmountAndProfitInfo  Azahar::getMonthSalesAndProfit()
 {
@@ -2222,7 +2238,7 @@ AmountAndProfitInfo  Azahar::getMonthSalesAndProfit()
     }
     //qDebug()<<"executed query:"<<qryTrans.executedQuery();
     //qDebug()<<"Qry size:"<<qryTrans.size();
-    
+
   }
   return result;
 }
@@ -2259,7 +2275,7 @@ qulonglong Azahar::insertTransaction(TransactionInfo info)
     :discmoney, :disc, :discm, :cardauthnumber, :utility, \
     :terminalnum, :providerid, :specialOrders, :balanceId, :totalTax)");
     **/
-    
+
     query2.bindValue(":type", info.type);
     query2.bindValue(":amount", info.amount);
     query2.bindValue(":date", info.date.toString("yyyy-MM-dd"));
@@ -2329,7 +2345,7 @@ bool Azahar::updateTransaction(TransactionInfo info)
     setError(details);
     qDebug()<<"DETALLES DEL ERROR:"<<details;
   } else result=true;
-  
+
   return result;
 }
 
@@ -2405,7 +2421,7 @@ bool Azahar::cancelTransaction(qulonglong id, bool inProgress)
   bool result=false;
   if (!db.isOpen()) db.open();
   bool ok = db.isOpen();
-  
+
   TransactionInfo tinfo = getTransactionInfo(id);
   bool transCompleted = false;
   bool alreadyCancelled = false;
@@ -2415,12 +2431,12 @@ bool Azahar::cancelTransaction(qulonglong id, bool inProgress)
   if (tinfo.state == tCancelled && transExists) alreadyCancelled = true;
 
   ///TODO & FIXME: What about card payments? Return money or what to do?
-  
-  
+
+
   if (ok) {
     QSqlQuery query(db);
     QString qry;
-    
+
     if (!inProgress && !alreadyCancelled && transExists) {
       qry = QString("UPDATE transactions SET  state=%1 WHERE id=%2")
       .arg(tCancelled)
@@ -2465,7 +2481,7 @@ bool Azahar::cancelTransaction(qulonglong id, bool inProgress)
             //check if the product is a group
             //NOTE: rawProducts ? affect stock when cancelling = YES but only if affected when sold one of its parents (specialOrders) and stockqty is set. But they would not be here, if not at specialOrders List
             ProductInfo pi = getProductInfo(l.at(0));
-            if ( pi.isAGroup ) 
+            if ( pi.isAGroup )
               incrementGroupStock(l.at(0).toULongLong(), l.at(1).toDouble()); //code at 0, qty at 1
             else //there is a normal product
               incrementProductStock(l.at(0).toULongLong(), l.at(1).toDouble()); //code at 0, qty at 1
@@ -2626,7 +2642,7 @@ bool Azahar::setTransactionStatus(qulonglong trId, TransactionState state)
         query.bindValue(":state", state);
 
         qDebug()<< __FUNCTION__ << "Tr Id:"<<trId<<" State:"<<state;
-        
+
         if (!query.exec() ) {
             int errNum = query.lastError().number();
             QSqlError::ErrorType errType = query.lastError().type();
@@ -2718,7 +2734,7 @@ QList<TransactionItemInfo> Azahar::getTransactionItems(qulonglong id)
       int fieldIsG = query.record().indexOf("isGroup");
       int fieldDDT = query.record().indexOf("deliveryDateTime");
       int fieldTax = query.record().indexOf("tax");
-      
+
       info.transactionid     = id;
       info.position      = query.value(fieldPosition).toInt();
       info.productCode   = query.value(fieldProductCode).toULongLong();
@@ -2845,7 +2861,7 @@ bool Azahar::updateBalance(BalanceInfo info)
     queryBalance.bindValue(":cashflows", info.cashflows);
     queryBalance.bindValue(":bid", info.id);
     queryBalance.bindValue(":isDone", info.done);
-    
+
     if (!queryBalance.exec() ) {
       int errNum = queryBalance.lastError().number();
       QSqlError::ErrorType errType = queryBalance.lastError().type();
@@ -2872,7 +2888,7 @@ qulonglong Azahar::insertCashFlow(CashFlowInfo info)
     query.bindValue(":reason", info.reason);
     query.bindValue(":amount", info.amount);
     query.bindValue(":type", info.type);
-    
+
     if (!query.exec() ) {
       int errNum = query.lastError().number();
       QSqlError::ErrorType errType = query.lastError().type();
@@ -2972,7 +2988,7 @@ QList<CashFlowInfo> Azahar::getCashFlowInfoList(const QDateTime &start, const QD
         int fieldTime    = query.record().indexOf("time");
         int fieldTermNum = query.record().indexOf("terminalNum");
         int fieldTStr    = query.record().indexOf("typeStr");
-        
+
         info.id          = query.value(fieldId).toULongLong();
         info.type        = query.value(fieldType).toULongLong();
         info.userid      = query.value(fieldUserId).toULongLong();
@@ -3632,11 +3648,11 @@ qulonglong Azahar::insertSpecialOrder(SpecialOrderInfo info)
   query.bindValue(":deliveryDT", info.deliveryDateTime);
   query.bindValue(":user", info.userId);
   query.bindValue(":client", info.clientId);
-  
+
   if (!query.exec()) setError(query.lastError().text()); else {
     result=query.lastInsertId().toULongLong();
   }
-  
+
   return result;
 }
 
@@ -3659,7 +3675,7 @@ bool Azahar::updateSpecialOrder(SpecialOrderInfo info)
   query.bindValue(":payment", info.payment);
   query.bindValue(":completeP", info.completePayment);
   query.bindValue(":deliveryDT", info.deliveryDateTime);
-  
+
   if (!query.exec()) setError(query.lastError().text()); else result=true;
   return result;
 }
@@ -3677,7 +3693,7 @@ bool Azahar::decrementSOStock(qulonglong id, double qty, QDate date)
     //FOR EACH ELEMENT, DECREMENT PRODUCT STOCK
     result = result && decrementProductStock(c, q*qty, date);
   }
-  
+
   return result;
 }
 
@@ -3726,7 +3742,7 @@ SpecialOrderInfo Azahar::getSpecialOrderInfo(qulonglong id)
         int fieldNotes   = query.record().indexOf("notes");
         int fieldClientId = query.record().indexOf("clientId");
         int fieldUserId = query.record().indexOf("userId");
-        
+
         info.orderid=id;
         info.name      = query.value(fieldDesc).toString();
         info.price    = query.value(fieldPrice).toDouble();
@@ -3780,7 +3796,7 @@ double Azahar::getSpecialOrderAverageTax(qulonglong id, AzaharRTypes returnType)
   double tax = 0;
 
   if ( id <= 0 ) return 0;
-  
+
   QList<ProductInfo> pList = getSpecialOrderProductsList(id);
   foreach( ProductInfo info, pList) {
     double discount = 0; double pWOtax= 0;
@@ -3803,7 +3819,7 @@ double Azahar::getSpecialOrderAverageTax(qulonglong id, AzaharRTypes returnType)
 
   qDebug()<<"\n <<<<<<< GetSpecialOrderAverageTax    :%"<<tax<<" $"<<taxMoney<<" Based Price:"<<price<<">>>>>>>>\n";
 
-  if (returnType == rtMoney) 
+  if (returnType == rtMoney)
     return taxMoney;
   else
     return tax;
@@ -3817,7 +3833,7 @@ double Azahar::getSpecialOrderAverageDiscount(qulonglong id)
   double disc = 0;
 
   if ( id <= 0 ) return 0;
-  
+
   QList<ProductInfo> pList = getSpecialOrderProductsList(id);
   foreach( ProductInfo info, pList) {
     price += info.price*info.qtyOnList;
@@ -3825,7 +3841,7 @@ double Azahar::getSpecialOrderAverageDiscount(qulonglong id)
       discMoney += (info.discpercentage/100)*info.price*info.qtyOnList;
     //qDebug()<<" < EACH ONE > price: "<<info.price*info.qtyOnList<<" discMoney: "<<(info.discpercentage/100)*info.price*info.qtyOnList;
   }
-  
+
   foreach(ProductInfo info, pList) {
       if (info.validDiscount  && !info.isNotDiscountable)
         disc += ( ((info.discpercentage/100)*info.price*info.qtyOnList)/price )*100;
@@ -3840,13 +3856,13 @@ int Azahar::getSpecialOrderNonDiscountables(qulonglong id)
 {
     int count = 0;
     if ( id <= 0 ) return 0;
-    
+
     QList<ProductInfo> pList = getSpecialOrderProductsList(id);
     foreach(ProductInfo info, pList) {
         if (info.isNotDiscountable)
             count++;
     }
-    
+
     return count;
 }
 
@@ -4092,7 +4108,7 @@ bool Azahar::deleteCurrency(const qulonglong &cid)
 qulonglong Azahar::insertReservation(ReservationInfo info)
 {
     qulonglong result = 0;
-    
+
     if (!db.isOpen()) db.open();
     QSqlQuery query(db);
     query.prepare("INSERT INTO reservations (transaction_id, client_id, date, status, payment, total, totaltaxes, discount, item_discounts, profit) VALUES (:transaction, :client, :date, :status, :payment, :total, :totaltaxes, :discount, :item_discounts, :profit);");
@@ -4106,13 +4122,13 @@ qulonglong Azahar::insertReservation(ReservationInfo info)
     query.bindValue(":discount", info.discount);
     query.bindValue(":item_discounts", info.item_discounts);
     query.bindValue(":profit", info.profit);
-    
+
     if (!query.exec()) {
         setError(query.lastError().text());
         qDebug()<< __FUNCTION__ << query.lastError().text();
     }
     else result = query.lastInsertId().toULongLong();
-    
+
     return result;
 }
 
@@ -4124,7 +4140,7 @@ bool Azahar::setReservationStatus(qulonglong id, reservationState state)
     query.prepare("UPDATE reservations SET status=:state WHERE id=:id;");
     query.bindValue(":id", id);
     query.bindValue(":state", state);
-    
+
     if (!query.exec()) setError(query.lastError().text()); else result=true;
     return result;
 }
@@ -4137,7 +4153,7 @@ bool Azahar::setTransactionReservationStatus(const qulonglong &trId)
     query.prepare("UPDATE transactions SET state=:status WHERE id=:id;");
     query.bindValue(":id", trId);
     query.bindValue(":status", tReserved);
-    
+
     if (!query.exec()) setError(query.lastError().text()); else result=true;
     return result;
 }
@@ -4206,7 +4222,7 @@ ReservationInfo Azahar::getReservationInfo(const qulonglong &id)
                 int fieldDisc    = myQuery.record().indexOf("discount");
                 int fielditemD   = myQuery.record().indexOf("item_discounts");
                 int fieldProfit  = myQuery.record().indexOf("profit");
-                
+
                 result.id = id;
                 result.client_id = myQuery.value(fieldClient).toULongLong();
                 result.transaction_id = myQuery.value(fieldTr).toULongLong();
@@ -4250,7 +4266,7 @@ ReservationInfo  Azahar::getReservationInfoFromTr(const qulonglong &trId)
                 int fieldDisc    = myQuery.record().indexOf("discount");
                 int fielditemD   = myQuery.record().indexOf("item_discounts");
                 int fieldProfit  = myQuery.record().indexOf("profit");
-                
+
                 result.id =        myQuery.value(fieldId).toULongLong();
                 result.client_id = myQuery.value(fieldClient).toULongLong();
                 result.transaction_id = myQuery.value(fieldTr).toULongLong();
@@ -4276,20 +4292,20 @@ bool Azahar::addReservationPayment(const qulonglong &rId, const double &amount  
 {
     bool result = false;
     QDate today = QDate::currentDate();
-    
+
     if (!db.isOpen()) db.open();
     QSqlQuery query(db);
     query.prepare("INSERT INTO reservation_payments (reservation_id, date, amount) VALUES (:reservation, :date, :amount);");
     query.bindValue(":reservation", rId);
     query.bindValue(":date", today);
     query.bindValue(":amount", amount);
-    
+
     if (!query.exec()) {
         setError(query.lastError().text());
         qDebug()<< __FUNCTION__ << query.lastError().text();
     }
     else result = true;
-    
+
     return result;
 }
 
@@ -4331,7 +4347,7 @@ bool Azahar::setReservationPayment(const qulonglong &id, const double &amount)
     query.prepare("UPDATE reservations SET payment=:amount WHERE id=:id;");
     query.bindValue(":id", id);
     query.bindValue(":amount", amount);
-    
+
     if (!query.exec()) setError(query.lastError().text()); else result=true;
     return result;
 }
@@ -4417,7 +4433,7 @@ qulonglong  Azahar::insertCredit(const CreditInfo &info)
     query.prepare("INSERT INTO credits (customerid, total) VALUES (:client, :total);");
     query.bindValue(":client", info.clientId);
     query.bindValue(":total", info.total);
-    
+
     if (!query.exec()) {
         setError(query.lastError().text());
         qDebug()<< __FUNCTION__ << query.lastError().text();
@@ -4435,7 +4451,7 @@ bool Azahar::updateCredit(const CreditInfo &info)
     query.bindValue(":client", info.clientId);
     query.bindValue(":total", info.total);
     query.bindValue(":id", info.id);
-    
+
     if (!query.exec()) {
         setError(query.lastError().text());
         qDebug()<< __FUNCTION__ << query.lastError().text();
@@ -4452,7 +4468,7 @@ QList<CreditHistoryInfo> Azahar:: getCreditHistoryForClient(const qulonglong &cl
     if (db.isOpen()) {
         QDate today = QDate::currentDate();
         QDate limitDate;
-        if (lastDays > 0) 
+        if (lastDays > 0)
             limitDate = today.addDays(-lastDays);
         else
             limitDate = today.addDays(-30);//default is one month ago.
@@ -4496,7 +4512,7 @@ qulonglong  Azahar::insertCreditHistory(const CreditHistoryInfo &info)
     query.bindValue(":time", info.time);
     query.bindValue(":amount", info.amount);
     query.bindValue(":saleId", info.saleId);
-    
+
     if (!query.exec()) {
         setError(query.lastError().text());
         qDebug()<< __FUNCTION__ << query.lastError().text();

@@ -2856,6 +2856,8 @@ void squeezeView::exportQTableView(QAbstractItemView *tableview)
 //import CSV and update inventory
 
 void squeezeView::importInventory(){
+    QString csvHeaderFormat = "\"id\",\"lines/product_id/code\",\"lines/qty\"";
+
     if(db.isOpen()){
         QString fileName = QFileDialog::getOpenFileName(this, i18n("Open"),"",i18n("CSV files (*.csv)"));
 
@@ -2866,7 +2868,7 @@ void squeezeView::importInventory(){
 
             QTextStream in(&file);
             QString line = in.readLine();
-            if(line != "Codigo,Cantidad")
+            if(line != csvHeaderFormat)
                 return;
 
             Azahar *myDb = new Azahar;
@@ -2876,25 +2878,59 @@ void squeezeView::importInventory(){
             double oldStockQty;
             QString reason = "Import Inventory from CSV";
             QStringList csvRowValuesList;
-            QStringList productsNotFoundInDb;
+            QStack<QString> failedCsvRows;
+
             while (!in.atEnd()) {
                 line = in.readLine();
+                line.remove(QChar('"'));
                 csvRowValuesList = line.split(",");
-                pcode = csvRowValuesList.at(0).toULongLong();
-                oldStockQty = myDb->getProductStockQty(pcode);
-                newStockQty = oldStockQty + csvRowValuesList.at(1).toDouble();
+                pcode = csvRowValuesList.at(1).toULongLong();
+                if(myDb->isProductInStock(pcode)){
+                    oldStockQty = myDb->getProductStockQty(pcode);
+                    newStockQty = oldStockQty + csvRowValuesList.at(2).toDouble();
 
-                qDebug()<<"Try Correcting stock. Old:"<<oldStockQty<<" New:"<<newStockQty<<" Reason"<<reason;
-                if (!myDb->correctStock(pcode, oldStockQty, newStockQty, reason )){
-                    qDebug()<<myDb->lastError();
-                    productsNotFoundInDb.append(csvRowValuesList.at(0));
-                }else {
-                    log(loggedUserId,QDate::currentDate(), QTime::currentTime(), i18n("Stock Correction: [Product %1] from %2 to %3. Reason:%4",pcode,oldStockQty,newStockQty, reason));
+                    qDebug()<<"Try Correcting stock. Old:"<<oldStockQty<<" New:"<<newStockQty<<" Reason:"<<reason<<" Code:"<<pcode;
+                    //This if dont do it function, verificate correctStock func.
+                    if (!myDb->correctStock(pcode, oldStockQty, newStockQty, reason )){
+                        qDebug()<<myDb->lastError();
+                        failedCsvRows.push(line);
+                    } else {
+                        log(loggedUserId,QDate::currentDate(), QTime::currentTime(), i18n("Stock Correction: [Product %1] from %2 to %3. Reason:%4",pcode,oldStockQty,newStockQty, reason));
+                        qDebug()<<"Stock changed";
+                    }
+                } else {
+                    failedCsvRows.push(line);
                 }
             }
 
             delete myDb;
             file.close();
+
+            if(!failedCsvRows.isEmpty()){
+                QMessageBox msgBox;
+                msgBox.setText(i18n("The file has non-existent products"));
+                msgBox.setInformativeText(i18n("Please create it and import the new csv in ~/not_found_products.csv"));
+                msgBox.setDetailedText(csvRowValuesList.join("\n"));
+                msgBox.exec();
+
+                QFile file(QString("%1/not_found_products.csv").arg(QDir::homePath()));
+
+                if (!file.open(QIODevice::WriteOnly | QIODevice::Text)){
+                    msgBox.setText(i18n("Error writing file"));
+                    msgBox.setInformativeText(i18n("Please update products manually"));
+                    msgBox.exec();
+                    return;
+                }
+
+                QTextStream out(&file);
+                out << csvHeaderFormat << endl;
+
+                while(!failedCsvRows.isEmpty())
+                    out << failedCsvRows.pop() << endl;
+
+                file.close();
+
+            } else qDebug()<<"All products found"; //Erase
         }
     }
 }

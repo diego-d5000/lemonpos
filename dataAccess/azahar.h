@@ -56,6 +56,7 @@ class Azahar : public QObject
     void setDatabase(const QSqlDatabase& database);
 
     // PRODUCTS
+    bool         isProductInStock(qulonglong code);
     ProductInfo  getProductInfo(const QString &code, const bool &notConsiderDiscounts = false); //the 2nd parameter is to get the taxes for the group (not considering discounts)
     qulonglong   getProductOfferCode(qulonglong code);
     qulonglong   getProductCode(QString text);
@@ -88,7 +89,7 @@ class Azahar : public QObject
     void         updateGroupPriceDrop(qulonglong code, double pd);
     void         updateGroupElements(qulonglong code, QString elementsStr);
 
-    
+
     //PRODUCT STOCK CORRECTION
     bool         correctStock(qulonglong pcode, double oldStockQty, double newStockQty, const QString &reason );
 
@@ -161,13 +162,13 @@ class Azahar : public QObject
     qulonglong  getEmptyTransactionId();
     double      getTransactionDiscMoney(qulonglong id);
     bool        setTransactionStatus(qulonglong trId, TransactionState state);
-    
+
     // TRANSACTIONITEMS
     bool        insertTransactionItem(TransactionItemInfo info);
     bool        deleteAllTransactionItem(qulonglong id);
     QList<TransactionItemInfo> getTransactionItems(qulonglong id);
 
-    
+
     //BALANCES
     qulonglong  insertBalance(BalanceInfo info);
     bool        updateBalance(BalanceInfo info);
@@ -183,7 +184,7 @@ class Azahar : public QObject
     qulonglong  getCardTypeId(QString type);
     QStringList getCardTypes();
     QHash<QString,int> getCardTypesHash();
-    
+
     //PayTypes
     QString     getPayTypeStr(qulonglong type);
     qulonglong  getPayTypeId(QString type);
@@ -262,7 +263,7 @@ class Azahar : public QObject
     CreditInfo        getCreditInfo(const qulonglong &id);
     CreditInfo        getCreditInfoForClient(const qulonglong &clientId, const bool &create=true); //by default it creates a new credit record if no one found for the customer.
     QList<CreditHistoryInfo> getCreditHistoryForClient(const qulonglong &clientId, const int &lastDays=0);
-    
+
     qulonglong        insertCredit(const CreditInfo &info);
     bool              updateCredit(const CreditInfo &info);
     qulonglong        insertCreditHistory(const CreditHistoryInfo &info);
